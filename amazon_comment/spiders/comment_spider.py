@@ -19,7 +19,7 @@ class AmazonCommentSpider(CrawlSpider):
         "Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
         "Accept-Encoding": "gzip, deflate",
         "Referer": "https://www.amazon.com/s/ref=nb_sb_noss_2?url=search-alias%3Daps&field-keywords=LED+light",
-        "Cookie": "x-wl-uid=1ACW+PDz/Xlve3VjvkHI3b47zPOIH9WePJ2qdDPPzjM6pwhws79+Eq1pHrosv9rU7IWv/SnW2M2E=; session-token=Mx7TtPGSABMe/TDrqFlNn8DfjuSgULhKoRervDIyWrbT3CL6tlhg1LjJ+2DSnggQuRXsG2KcQ2dozigFtuPaQyXDwE7Mjoa4eM9feKGbXyO0df7SMrpkHRflYqSBDh1fE51iJvZTt9+PRD5x/lBXsW9gX8bJGVmCgbbscpMU4J1lGyzw/Th3+GIUXl1POkgoCiZqsKi4v6441yxiByg7vMtVskEyHj7qKT+voAB9oXraSb+CJug44eOxIaN6Af/w; ubid-main=162-1721502-1097650; session-id-time=2082787201l; session-id=153-0935590-6361045; csm-hit=9ME9J1YY7EPPP25S2K3R+s-9ME9J1YY7EPPP25S2K3R|1488117787357",
+        "Connection": "keep-alive",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"
     }
 
@@ -43,20 +43,23 @@ class AmazonCommentSpider(CrawlSpider):
 
     def parse_detail_url(self, response):
         """获取LED light项的详情页，抓取评论页地址"""
-        url = response.xpath('//*[@id="reviews-medley-footer"]/div[1]/a/@href').extract()
-        print '\n\n\n', url, '\n\n\n'
-        yield scrapy.Request(url, headers=self.headers, callback=self.parse_item)
+        urls = response.xpath('//*[@id="reviews-medley-footer"]/div[1]/a/@href').extract()
+        for url in urls:
+            yield scrapy.Request(self.DOMAIN_PREFIX + url, headers=self.headers, callback=self.parse_item)
 
 
     def parse_item(self, response):
         """获取评论页，抓取评论项和评论页下一页地址"""
 
         product_div = response.xpath('//*[@id="cm_cr-product_info"]/div/div[2]')
+        print "\n\n\n", product_div.extract(), "\n\n\n"
         product = AmazonProductItem()
         link = product_div.xpath('/div/div/div[1]/a/@href').extract()
+        if not link:
+            return
         product['detail_url'] = self.DOMAIN_PREFIX + link
-        product['img_url'] = product_div.xpath('/div/div/div[1]/a/img/@src').extract()
-        product['title'] = product_div.xpath('/div/div/div[2]/div[1]/h1/a/text()').extract()
+        product['img_url'] = product_div.xpath('/div/div/div[1]/a/img/@src').extract_first()
+        product['title'] = product_div.xpath('/div/div/div[2]/div[1]/h1/a/text()').extract_first()
         dp_index = str(link).find('dp')
         if dp_index != -1:
             product_id_match = re.compile(r'dp/(.*?)/').match(link[dp_index:])
